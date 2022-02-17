@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>chat</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <style>
+            .your .card{
+                border-color: #0a57ca7a;
+                background-color: #0a58ca29;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="app">
+            <div v-if="!ready" class="album">
+                <div class="container">
+                    <div class="row row-cols-1 row-cols-sm-1 row-cols-md-1 g-3">
+                        <div class="col mt-4">            
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title">Enter your username</h5>
+                                    <form @submit.prevent="addUser">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" v-model="username">
+                                            <input type="submit" value="Join" class="btn btn-primary">
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>                     
+                    </div>    
+                </div>
+            </div>
+            <div v-if="ready" class="album" style="margin-bottom: 16rem;">
+                <div class="container" id="messages">
+                    <div class="row row-cols-1 row-cols-sm-1 row-cols-md-1 g-3">                
+                        <div class="col-12 mt-4" v-bind:class="(message.type === 1)?'me-5':'ms-5 your'" v-for="message in messages">
+                            <div class="card">
+                                <div class="card-body">
+                                <h5 class="card-title">{{message.user}}</h5>
+                                <p class="card-text">{{message.message}}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-0 m-0 fixed-bottom bg-white">           
+                    <div class="border-top p-3">
+                        <h5>You are logged in as: {{username}}</h5>
+                        <form @submit.prevent="send">
+                            <div class="input-group">
+                                <input type="text" required class="form-control" v-model="newMessage" placeholder="message">
+                                <input type="submit" value="Send" class="btn btn-primary">
+                            </div>
+                        </form>
+                    </div>
+                </div> 
+            </div>      
+        </div>   
+    </body>
+    <script>
+    const socket = io();
+    let vue = new Vue({
+        el: "#app",
+        data: {
+            newMessage: null,
+            messages: [],
+            username: null,
+            ready: false,
+            info: [],
+            connections: 0,
+        },
+        created() {
+            window.onbeforeunload = () => {
+                socket.emit("leave", this.username);
+            }
+            
+            socket.on("chat-message", (data) => {
+                this.messages.push({
+                    message: data.message,
+                    type: 1,
+                    user: data.user,
+                });
+                window.scrollTo(0,document.body.scrollHeight);
+            });
+            socket.on("joined", (data) => {
+                this.info.push({
+                    username: data,
+                    type: "joined"
+                });
+                setTimeout(() => {
+                    this.info = [];
+                }, 5000);
+            });
+            socket.on("leave", (data) => {
+                this.info.push({
+                    username: data,
+                    type: "left"
+                });
+                setTimeout(() => {
+                    this.info = [];
+                }, 5000);
+            });
+            socket.on("connections", (data) => {
+                this.connections = data;
+            });
+        },
+        methods: {
+            send() {
+                this.messages.push({
+                    message: this.newMessage,
+                    type: 0,
+                    user: "You",
+                });
+                socket.emit("chat-message", {
+                    message: this.newMessage,
+                    user: this.username
+                });
+                this.newMessage = null;
+                window.scrollTo(0,document.body.scrollHeight);
+            },
+            addUser() {
+                this.ready = true;
+                socket.emit("joined", this.username)
+            }
+        },
+    });
+    </script>
+</html>
